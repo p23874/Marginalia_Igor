@@ -1,6 +1,5 @@
 # Continuous integration pipeline of Marginália.
-# For now it only builds the software. Add one job for SAST, one for the
-# tests and one for DAST.
+# Every push runs the build and, in parallel, SAST, software tests and DAST.
 name: CI
 
 on:
@@ -20,3 +19,36 @@ jobs:
       - uses: actions/checkout@v6
       - name: Build the software and the unit tests
         run: make
+
+  sast:
+    name: SAST
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install Semgrep
+        run: pipx install semgrep==1.182.1
+      - name: Run Semgrep
+        run: make sast
+
+  tests:
+    name: Tests
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install Valgrind
+        run: sudo apt-get update && sudo apt-get install -y valgrind
+      - name: Run the unit tests with ASan and UBSan
+        run: make sanitizers
+      - name: Run the unit tests under Valgrind
+        run: make valgrind
+
+  dast:
+    name: DAST
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - name: Run the hostile cases
+        run: make dast
